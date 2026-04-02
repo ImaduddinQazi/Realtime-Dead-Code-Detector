@@ -21,3 +21,17 @@ class LegacyPayment(Base):
     id = Column(Integer, primary_key=True)
     old_ref = Column(String)
     amount = Column(Float)
+
+class ApiUsageLog(Base):
+    __tablename__ = "api_usage_logs"
+    id = Column(Integer, primary_key=True)
+    path = Column(String)
+    method = Column(String)
+    status_code = Column(Integer)
+    timestamp = Column(DateTime, default=datetime.utcnow)
+
+class DbTableUsage(Base):
+    __tablename__ = "db_table_usage"
+    id = Column(Integer, primary_key=True)
+    table_name = Column(String)
+    timestamp = Column(DateTime, default=datetime.utcnow)
