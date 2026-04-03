@@ -1,6 +1,8 @@
 from fastapi import FastAPI
 from database import engine, Base
 from routes import users, orders, legacy
+from middleware import UsageTrackerMiddleware
+import tracker 
 
 Base.metadata.create_all(bind=engine)
 
