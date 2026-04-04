@@ -1,3 +1,4 @@
+import asyncio
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from database import SessionLocal
@@ -10,16 +11,19 @@ class UsageTrackerMiddleware(BaseHTTPMiddleware):
         response = await call_next(request)
 
         if request.url.path not in IGNORED_PATHS:
-            db = SessionLocal()
-            try:
-                log = ApiUsageLog(
-                    path=request.url.path,
-                    method=request.method,
-                    status_code=response.status_code,
-                )
-                db.add(log)
-                db.commit()
-            finally:
-                db.close()
+            # Run DB write in a thread so it doesn't block the async loop
+            await asyncio.to_thread(self._log_request, request.url.path, request.method, response.status_code)
 
         return response
+
+    def _log_request(self, path, method, status_code):
+        db = SessionLocal()
+        try:
+            log = ApiUsageLog(path=path, method=method, status_code=status_code)
+            db.add(log)
+            db.commit()
+        except Exception as e:
+            db.rollback()
+            print(f"Middleware log error: {e}")
+        finally:
+            db.close()
