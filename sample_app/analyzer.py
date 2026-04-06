@@ -1,10 +1,9 @@
 from datetime import datetime, timezone
 from database import SessionLocal
-from models import ApiUsageLog
+from models import ApiUsageLog, DbTableUsage
 from sqlalchemy import func
+import re
 
-# All routes registered in your app
-# In Phase 4 we'll auto-discover these — hardcode for now
 ALL_ROUTES = [
     ("GET",  "/users"),
     ("POST", "/users"),
@@ -16,15 +15,22 @@ ALL_ROUTES = [
 
 ALL_TABLES = ["users", "orders", "legacy_payments"]
 
-def calculate_confidence(last_seen_days, total_calls):
-    """
-    Confidence that an endpoint is DEAD (0-100%).
-    Higher = more likely dead.
-    """
-    if total_calls == 0:
-        return 97  # never called = almost certainly dead
+def route_to_pattern(path):
+    """Convert /orders/{order_id}/confirm → regex ^/orders/[^/]+/confirm$"""
+    pattern = re.sub(r"\{[^}]+\}", r"[^/]+", path)
+    pattern = pattern.rstrip("/")
+    return re.compile(f"^{pattern}/?$")
 
-    # Recency score: the older the last call, the higher the score
+def match_route(method, template_method, template_path, logged_paths):
+    """Count how many logged paths match this route template."""
+    if method != template_method:
+        return 0
+    pattern = route_to_pattern(template_path)
+    return sum(1 for p in logged_paths if pattern.match(p))
+
+def calculate_confidence(last_seen_days, total_calls):
+    if total_calls == 0:
+        return 97
     if last_seen_days <= 1:
         recency = 0
     elif last_seen_days <= 7:
@@ -36,7 +42,6 @@ def calculate_confidence(last_seen_days, total_calls):
     else:
         recency = 90
 
-    # Frequency score: very low call count raises suspicion
     if total_calls > 100:
         frequency = 0
     elif total_calls > 20:
@@ -46,7 +51,7 @@ def calculate_confidence(last_seen_days, total_calls):
     else:
         frequency = 40
 
-    return min(recency + frequency, 96)  # cap at 96% if ever called
+    return min(recency + frequency, 96)
 
 def get_status(confidence):
     if confidence >= 80:
@@ -61,25 +66,25 @@ def analyze_routes():
     results = []
 
     try:
+        # Load all logs once — method + path per row
+        all_logs = db.query(ApiUsageLog).all()
+
         for method, path in ALL_ROUTES:
-            # Count total calls
-            total = db.query(func.count(ApiUsageLog.id))\
-                .filter(ApiUsageLog.method == method)\
-                .filter(ApiUsageLog.path == path)\
-                .scalar()
+            # Find all logs matching this route template
+            pattern = route_to_pattern(path)
+            matching_logs = [
+                log for log in all_logs
+                if log.method == method and pattern.match(log.path)
+            ]
 
-            # Get last seen timestamp
-            last_log = db.query(ApiUsageLog)\
-                .filter(ApiUsageLog.method == method)\
-                .filter(ApiUsageLog.path == path)\
-                .order_by(ApiUsageLog.timestamp.desc())\
-                .first()
+            total = len(matching_logs)
 
-            if last_log:
+            if matching_logs:
+                latest = max(matching_logs, key=lambda l: l.timestamp)
                 now = datetime.now(timezone.utc)
-                last_seen = last_log.timestamp.replace(tzinfo=timezone.utc)
+                last_seen = latest.timestamp.replace(tzinfo=timezone.utc)
                 days_ago = (now - last_seen).days
-                last_seen_str = last_log.timestamp.strftime("%Y-%m-%d %H:%M")
+                last_seen_str = latest.timestamp.strftime("%Y-%m-%d %H:%M")
             else:
                 days_ago = 9999
                 last_seen_str = "never"
@@ -100,7 +105,6 @@ def analyze_routes():
     finally:
         db.close()
 
-    # Sort: dead first, then warn, then active
     order = {"DEAD": 0, "WARN": 1, "ACTIVE": 2}
     results.sort(key=lambda x: order[x["status"]])
     return results
@@ -110,7 +114,6 @@ def analyze_tables():
     results = []
 
     try:
-        from models import DbTableUsage
         for table in ALL_TABLES:
             total = db.query(func.count(DbTableUsage.id))\
                 .filter(DbTableUsage.table_name == table)\
