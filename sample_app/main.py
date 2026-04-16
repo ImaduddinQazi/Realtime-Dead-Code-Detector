@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from database import engine, Base
 from routes import users, orders, legacy
+from routes import dashboard
 from middleware import UsageTrackerMiddleware
 import tracker
 
@@ -14,6 +15,7 @@ app.add_middleware(UsageTrackerMiddleware)
 app.include_router(users.router)
 app.include_router(orders.router)
 app.include_router(legacy.router)
+app.include_router(dashboard.router) 
 
 @app.get("/")
 def root():
