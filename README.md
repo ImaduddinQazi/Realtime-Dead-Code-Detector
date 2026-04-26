@@ -3,7 +3,7 @@ In Development ⬆️
 
 
 
-### basic structure 
+### basic structure with sample project
 Realtime-Dead-Code-Detector/
 └── sample_app/
     ├── main.py         
