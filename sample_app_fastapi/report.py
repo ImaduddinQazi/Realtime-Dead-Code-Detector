@@ -1,4 +1,4 @@
-from analyzer import analyze_routes, analyze_tables
+from detector_core.analyzer import analyze_routes, analyze_tables
 
 def print_report():
     print("\n" + "="*60)

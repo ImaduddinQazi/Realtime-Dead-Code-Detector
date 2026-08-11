@@ -1,8 +1,8 @@
 import asyncio
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
-from database import SessionLocal
-from models import ApiUsageLog
+from detector_core.database import SessionLocal
+from detector_core.models import ApiUsageLog
 
 IGNORED_PATHS = {"/docs", "/openapi.json", "/redoc", "/favicon.ico"}
 

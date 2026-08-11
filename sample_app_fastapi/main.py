@@ -1,9 +1,9 @@
 from fastapi import FastAPI
-from database import engine, Base
-from routes import users, orders, legacy
-from routes import dashboard          # ← add this
-from middleware import UsageTrackerMiddleware
-import tracker
+from detector_core.database import engine, Base
+from sample_app_fastapi.routes import users, orders, legacy
+from sample_app_fastapi.routes import dashboard          # ← add this
+from sample_app_fastapi.middleware import UsageTrackerMiddleware
+from detector_core import tracker
 
 Base.metadata.create_all(bind=engine)
 tracker.set_tables_ready()

@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 from fastapi.responses import HTMLResponse
-from analyzer import analyze_routes, analyze_tables
+from detector_core.analyzer import analyze_routes, analyze_tables
 
 router = APIRouter(prefix="/dead-detector", tags=["dashboard"])
 
